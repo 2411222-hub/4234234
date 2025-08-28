@@ -14,7 +14,7 @@ st.set_page_config(
 # 보안을 위해 스트림릿의 secrets 관리 기능을 사용하는 것을 권장합니다.
 # 예: genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 try:
-    genai.configure(api_key="pip install google-generativeai")
+    genai.configure(api_key="AIzaSyBxNo9TfjEnCB1ueALqR7X9c5yJtRjsvFY")
 except Exception as e:
     st.error("API 키 설정에 실패했습니다. 올바른 키를 입력했는지 확인해주세요.")
     st.stop()
