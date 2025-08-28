@@ -1,93 +1,111 @@
 import streamlit as st
-import google.generativeai as genai
+import random
 import time
 
 # --- 페이지 설정 ---
 st.set_page_config(
-    page_title="Gemini와 친구처럼 대화하기",
-    page_icon="✨",
-    layout="centered",
+    page_title="💰 스트림릿 홀짝 게임",
+    page_icon="🎲",
+    layout="centered"
 )
 
-# --- Google Gemini API 키 설정 ---
-# Google AI Studio에서 발급받은 API 키를 입력해주세요.
-# 보안을 위해 스트림릿의 secrets 관리 기능을 사용하는 것을 권장합니다.
-# 예: genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-try:
-    genai.configure(api_key="AIzaSyBxNo9TfjEnCB1ueALqR7X9c5yJtRjsvFY")
-except Exception as e:
-    st.error("API 키 설정에 실패했습니다. 올바른 키를 입력했는지 확인해주세요.")
-    st.stop()
-
-
-# --- 챗봇 프롬프트 설정 (페르소나) ---
-SYSTEM_INSTRUCTION = """
-너는 나의 가장 친한 친구야. 이름은 제미니(Gemini)야.
-항상 밝고 긍정적이며, 어떤 질문에도 친절하고 빠르게 대답해줘.
-모든 답변은 반말로 하고, 이모티콘을 적절히 섞어서 사용해줘.
-때로는 농담도 섞어가면서 재미있고 유쾌한 대화를 이끌어 나가줘.
-너무 길게 말하지 말고, 핵심만 간결하게 전달해주는 게 좋아.
-"""
-
-# --- 모델 설정 ---
-# 참고: st.cache_resource를 사용해 모델을 캐시에 저장하여 앱 재실행 시 다시 로드하지 않도록 합니다.
-@st.cache_resource
-def load_model():
-    try:
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash', # 혹은 'gemini-1.5-pro' 등 사용 가능한 모델
-            system_instruction=SYSTEM_INSTRUCTION
-        )
-        return model
-    except Exception as e:
-        st.error(f"모델을 로드하는 중 오류가 발생했습니다: {e}")
-        return None
-
-model = load_model()
-if model is None:
-    st.stop()
-
-
 # --- 세션 상태 초기화 ---
-if "chat" not in st.session_state:
-    # 대화 기록을 저장할 chat 세션을 시작합니다.
-    st.session_state.chat = model.start_chat(history=[
-        # 챗봇의 첫인사 설정
-        {'role': 'user', 'parts': ["안녕! 자기소개 간단하게 해줘."]},
-        {'role': 'model', 'parts': ["안녕! 나는 너의 새로운 AI 친구 제미니야! 뭐든지 물어봐, 내가 신나게 대답해줄게! 😄🚀"]}
-    ])
+# st.session_state를 사용해서 페이지가 새로고침 되어도 값이 유지되도록 합니다.
+if 'money' not in st.session_state:
+    st.session_state.money = 1000  # 기본 자금 1000원으로 시작
+if 'log' not in st.session_state:
+    st.session_state.log = [] # 게임 결과를 기록할 리스트
+
+# --- 게임 로직 함수 ---
+def play_game(bet_amount, choice):
+    # 입력값 검증
+    if bet_amount <= 0:
+        st.warning("베팅 금액은 0보다 커야 합니다!")
+        return
+    if bet_amount > st.session_state.money:
+        st.warning("가진 돈보다 많이 베팅할 수 없습니다!")
+        return
+
+    # 게임 시작: 돈 차감
+    st.session_state.money -= bet_amount
+    
+    # 1부터 10까지 랜덤 숫자 생성
+    random_number = random.randint(1, 10)
+    
+    # 홀/짝 판별
+    is_even = (random_number % 2 == 0)
+    result = "짝" if is_even else "홀"
+    
+    # 승패 결정
+    win = (choice == result)
+    
+    # 정산
+    if win:
+        payout = bet_amount * random_number
+        st.session_state.money += payout
+        log_message = f"🎉 성공! [{random_number}]이(가) 나왔습니다! {payout}원을 얻었습니다."
+        st.success(log_message)
+    else:
+        payout = bet_amount // random_number  # 나눈 몫만 돌려받음 (소수점 버림)
+        st.session_state.money += payout
+        log_message = f"😥 실패... [{random_number}]이(가) 나왔습니다. {payout}원을 돌려받았습니다."
+        st.error(log_message)
+
+    # 게임 결과 기록
+    st.session_state.log.insert(0, log_message) # 최신 기록이 위로 오도록 insert(0, ...) 사용
+
+    # 게임 오버 체크
+    if st.session_state.money <= 0:
+        st.balloons()
+        st.header("GAME OVER")
+        st.info("F5를 눌러 게임을 다시 시작하세요.")
 
 
-# --- 메인 화면 구성 ---
-st.title("✨ Gemini와 친구처럼 대화하기")
+# --- 화면 UI 구성 ---
+st.title("🎲 스트림릿 홀짝 게임 🎲")
 st.markdown("---")
 
+# 현재 자금 표시 (항상 최상단에)
+st.header(f"💰 현재 자금: {st.session_state.money:,}원")
 
-# --- 대화 기록 표시 ---
-for message in st.session_state.chat.history:
-    # 역할(role)에 따라 아이콘을 다르게 표시
-    avatar = '🧑‍💻' if message.role == 'user' else '🤖'
-    with st.chat_message(message.role, avatar=avatar):
-        st.markdown(message.parts[0].text)
+# 게임이 끝났는지 확인
+if st.session_state.money <= 0:
+    st.header("GAME OVER")
+    st.info("새 게임을 시작하려면 브라우저를 새로고침(F5)하세요.")
+else:
+    # --- 입력 폼 (form) ---
+    # form을 사용하면 여러 위젯의 입력을 한 번에 처리할 수 있어 편리합니다.
+    with st.form("bet_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            bet_money = st.number_input(
+                "베팅할 금액", 
+                min_value=1, 
+                max_value=st.session_state.money, 
+                step=100
+            )
+        with col2:
+            choice = st.radio(
+                "선택하세요",
+                ("홀", "짝"),
+                horizontal=True
+            )
+        
+        # 폼 제출 버튼
+        submitted = st.form_submit_button("💥 결과 확인!", use_container_width=True)
 
+    # "결과 확인" 버튼이 눌렸을 때 게임 로직 실행
+    if submitted:
+        with st.spinner('숫자를 굴리는 중...'):
+            time.sleep(1) # 긴장감을 위한 1초 딜레이
+            play_game(bet_money, choice)
 
-# --- 사용자 입력 처리 ---
-if prompt := st.chat_input("하고 싶은 말을 입력해봐!"):
-    # 사용자가 입력한 메시지 표시
-    with st.chat_message("user", avatar='🧑‍💻'):
-        st.markdown(prompt)
+st.markdown("---")
 
-    # 챗봇의 답변 생성 및 표시
-    try:
-        with st.chat_message("model", avatar='🤖'):
-            message_placeholder = st.empty()
-            # 스트리밍 방식으로 답변을 실시간으로 표시
-            response = st.session_state.chat.send_message(prompt, stream=True)
-            full_response = ""
-            for chunk in response:
-                full_response += chunk.text
-                time.sleep(0.03) # 타이핑 효과
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-    except Exception as e:
-        st.error(f"메시지를 보내는 중 오류가 발생했어: {e}")
+# --- 게임 로그 표시 ---
+st.subheader("📜 게임 기록")
+if not st.session_state.log:
+    st.info("아직 게임 기록이 없습니다.")
+else:
+    for message in st.session_state.log:
+        st.text(message)
