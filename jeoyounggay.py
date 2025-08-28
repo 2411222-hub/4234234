@@ -81,7 +81,8 @@ else:
             bet_money = st.number_input(
                 "베팅할 금액", 
                 min_value=1, 
-                max_value=st.session_state.money, 
+                max_value=st.session_state.money,
+                value=min(100, st.session_state.money), # <-- 이 부분이 수정되었습니다!
                 step=100
             )
         with col2:
