@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import time
+import pandas as pd  # 그래프를 위해 pandas를 추가합니다.
 
 # --- 페이지 설정 ---
 st.set_page_config(
@@ -12,6 +13,8 @@ st.set_page_config(
 # --- 세션 상태 초기화 ---
 if 'money' not in st.session_state:
     st.session_state.money = 1000
+    # 자금 변동을 기록할 리스트를 만들고, 시작 자금을 첫 값으로 넣습니다.
+    st.session_state.money_history = [1000]
 if 'log' not in st.session_state:
     st.session_state.log = []
 
@@ -33,16 +36,16 @@ def play_game(bet_amount, choice):
         payout = bet_amount * random_number
         st.session_state.money += payout
         log_message = f"🎉 성공! [{random_number}]이(가) 나왔습니다! {payout}원을 얻었습니다."
-        # 성공 메시지는 success 박스로 표시 (rerun 되기 전 잠시 보임)
         st.success(log_message)
     else:
         payout = bet_amount // random_number
         st.session_state.money += payout
         log_message = f"😥 실패... [{random_number}]이(가) 나왔습니다. {payout}원을 돌려받았습니다."
-        # 실패 메시지는 error 박스로 표시 (rerun 되기 전 잠시 보임)
         st.error(log_message)
 
     st.session_state.log.insert(0, log_message)
+    # 게임 후 자금을 history 리스트에 추가합니다.
+    st.session_state.money_history.append(st.session_state.money)
 
     if st.session_state.money <= 0:
         st.balloons()
@@ -79,16 +82,27 @@ else:
         with st.spinner('숫자를 굴리는 중...'):
             time.sleep(1)
             play_game(bet_money, choice)
-            # 게임 로직 실행 후 즉시 스크립트를 재실행하여 화면을 업데이트합니다.
             st.rerun()
 
 st.markdown("---")
 
+# --- 자금 변동 그래프 ---
+# 게임을 한 번 이상 진행했을 때만 그래프를 표시합니다.
+if len(st.session_state.money_history) > 1:
+    st.subheader("💸 자금 변동 그래프")
+    # pandas DataFrame으로 데이터를 변환하여 보기 좋게 만듭니다.
+    chart_data = pd.DataFrame({
+        '자금': st.session_state.money_history
+    })
+    # x축은 '게임 횟수'를 의미하게 됩니다 (0회차, 1회차, ...)
+    st.line_chart(chart_data)
+
+
+# --- 게임 로그 표시 ---
 st.subheader("📜 게임 기록")
 if not st.session_state.log:
     st.info("아직 게임 기록이 없습니다.")
 else:
-    # 성공/실패 메시지를 로그에서 직접 렌더링
     for message in st.session_state.log:
         if "성공" in message:
             st.success(message)
